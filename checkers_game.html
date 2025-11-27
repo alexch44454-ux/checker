@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Шашки - Telegram Game</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            overflow: hidden;
+        }
+        
+        .game-container {
+            width: 100%;
+            max-width: 500px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+        }
+        
+        .game-container.hidden {
+            display: none;
+        }
+        
+        .game-info {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .current-player {
+            padding: 8px 16px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .current-player.white {
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+        }
+        
+        .current-player.black {
+            background: rgba(0, 0, 0, 0.3);
+            color: #fff;
+        }
+        
+        .checkers-board {
+            width: 100%;
+            max-width: 400px;
+            aspect-ratio: 1;
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            border: 4px solid #8b4513;
+            background: #d4a574;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border-radius: 5px;
+        }
+        
+        .cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .cell.light {
+            background: #f0d9b5;
+        }
+        
+        .cell.dark {
+            background: #b58863;
+        }
+        
+        .cell.dark:hover {
+            background: #c49f7a;
+        }
+        
+        .cell.selected {
+            background: #ffd700 !important;
+            box-shadow: inset 0 0 20px rgba(255, 215, 0, 0.5);
+        }
+        
+        .cell.possible-move {
+            background: #90ee90 !important;
+            box-shadow: inset 0 0 15px rgba(144, 238, 144, 0.5);
+        }
+        
+        .cell.possible-capture {
+            background: #ff6b6b !important;
+            box-shadow: inset 0 0 15px rgba(255, 107, 107, 0.5);
+        }
+        
+        .piece {
+            width: 80%;
+            height: 80%;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        .piece.white {
+            background: linear-gradient(135deg, #ffffff 0%, #e0e0e0 100%);
+            color: #333;
+            border: 3px solid #ccc;
+        }
+        
+        .piece.black {
+            background: linear-gradient(135deg, #2c2c2c 0%, #000000 100%);
+            color: #fff;
+            border: 3px solid #1a1a1a;
+        }
+        
+        .piece.king::after {
+            content: '♔';
+            font-size: 0.6em;
+            position: absolute;
+        }
+        
+        .piece.white.king {
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+            border: 3px solid #ffb300;
+        }
+        
+        .piece.black.king {
+            background: linear-gradient(135deg, #8b4513 0%, #654321 100%);
+            border: 3px solid #5a2d0c;
+        }
+        
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            backdrop-filter: blur(10px);
+        }
+        
+        button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        /* Меню выбора режима */
+        .mode-menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .mode-menu {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+        
+        .mode-menu h2 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            color: #fff;
+        }
+        
+        .mode-menu p {
+            margin-bottom: 20px;
+            color: #ccc;
+        }
+        
+        .mode-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .mode-btn {
+            padding: 15px 25px;
+            font-size: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .mode-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-2px);
+        }
+        
+        .mode-icon {
+            font-size: 24px;
+        }
+        
+        /* Меню сложности бота */
+        .bot-difficulty-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1001;
+        }
+        
+        .bot-difficulty-menu {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+        
+        .difficulty-slider {
+            width: 100%;
+            height: 10px;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.2);
+            outline: none;
+            margin: 20px 0;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        
+        .difficulty-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            background: #4CAF50;
+            cursor: pointer;
+        }
+        
+        .difficulty-slider::-moz-range-thumb {
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            background: #4CAF50;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .difficulty-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .difficulty-description {
+            color: #ccc;
+            margin-bottom: 20px;
+            min-height: 40px;
+        }
+        
+        .game-over-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        
+        .game-over-menu {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+        
+        .game-over-menu h2 {
+            font-size: 32px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Меню выбора режима -->
+    <div class="mode-menu-overlay" id="modeMenuOverlay" style="display: flex;">
+        <div class="mode-menu">
+            <h2>⚫ Шашки</h2>
+            <p>Выберите режим игры:</p>
+            <div class="mode-buttons">
+                <button class="mode-btn" onclick="showBotDifficultyMenu()">
+                    <span class="mode-icon">🤖</span>
+                    <span class="mode-text">Играть против бота</span>
+                </button>
+                <button class="mode-btn" onclick="selectMode('pvp')">
+                    <span class="mode-icon">👥</span>
+                    <span class="mode-text">Два игрока на одном устройстве</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Меню выбора сложности бота -->
+    <div class="bot-difficulty-overlay" id="botDifficultyOverlay">
+        <div class="bot-difficulty-menu">
+            <h2>🤖 Сложность бота</h2>
+            <div class="difficulty-value" id="difficultyValue">5</div>
+            <div class="difficulty-description" id="difficultyDescription">Средняя сложность</div>
+            <input type="range" min="1" max="10" value="5" class="difficulty-slider" id="difficultySlider" oninput="updateDifficultyDisplay()">
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button onclick="startGameWithBot()" style="flex: 1;">Играть</button>
+                <button onclick="hideBotDifficultyMenu()" style="flex: 1; background: rgba(255, 0, 0, 0.3);">Отмена</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Игровой контейнер -->
+    <div class="game-container" id="gameContainer">
+        <div class="game-info">
+            <div class="current-player white" id="currentPlayer">Ход: Белые</div>
+        </div>
+        <div class="checkers-board" id="checkersBoard"></div>
+        <div class="controls">
+            <button onclick="resetGame()">Новая игра</button>
+            <button onclick="showModeMenu()">Меню</button>
+        </div>
+    </div>
+    
+    <!-- Оверлей окончания игры -->
+    <div class="game-over-overlay" id="gameOverOverlay">
+        <div class="game-over-menu">
+            <h2 id="gameOverTitle">Игра окончена!</h2>
+            <p id="gameOverMessage"></p>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button onclick="resetGame()" style="flex: 1;">Новая игра</button>
+                <button onclick="showModeMenu()" style="flex: 1;">Меню</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Telegram WebApp API
+        const tg = window.Telegram?.WebApp;
+        if (tg) {
+            tg.ready();
+            tg.expand();
+        }
+        
+        // Игровые переменные
+        let board = [];
+        let currentPlayer = 'white'; // 'white' или 'black'
+        let selectedCell = null;
+        let possibleMoves = [];
+        let gameMode = null; // 'bot', 'pvp', 'online'
+        let botDifficulty = 5; // 1-10
+        let gameOver = false;
+        const BOARD_SIZE = 8;
+        
+        // Инициализация доски
+        function initBoard() {
+            board = [];
+            for (let row = 0; row < BOARD_SIZE; row++) {
+                board[row] = [];
+                for (let col = 0; col < BOARD_SIZE; col++) {
+                    board[row][col] = null;
+                }
+            }
+            
+            // Расстановка белых фишек (внизу)
+            for (let row = 5; row < BOARD_SIZE; row++) {
+                for (let col = 0; col < BOARD_SIZE; col++) {
+                    if ((row + col) % 2 === 1) {
+                        board[row][col] = { type: 'white', king: false };
+                    }
+                }
+            }
+            
+            // Расстановка черных фишек (вверху)
+            for (let row = 0; row < 3; row++) {
+                for (let col = 0; col < BOARD_SIZE; col++) {
+                    if ((row + col) % 2 === 1) {
+                        board[row][col] = { type: 'black', king: false };
+                    }
+                }
+            }
+            
+            renderBoard();
+        }
+        
+        // Отрисовка доски
+        function renderBoard() {
+            const boardElement = document.getElementById('checkersBoard');
+            boardElement.innerHTML = '';
+            
+            for (let row = 0; row < BOARD_SIZE; row++) {
+                for (let col = 0; col < BOARD_SIZE; col++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.classList.add((row + col) % 2 === 0 ? 'light' : 'dark');
+                    cell.dataset.row = row;
+                    cell.dataset.col = col;
+                    
+                    // Добавляем фишку, если она есть
+                    const piece = board[row][col];
+                    if (piece) {
+                        const pieceElement = document.createElement('div');
+                        pieceElement.className = `piece ${piece.type}`;
+                        if (piece.king) {
+                            pieceElement.classList.add('king');
+                        }
+                        cell.appendChild(pieceElement);
+                    }
+                    
+                    // Обработчик клика
+                    if ((row + col) % 2 === 1) { // Только черные клетки кликабельны
+                        cell.addEventListener('click', () => handleCellClick(row, col));
+                    }
+                    
+                    boardElement.appendChild(cell);
+                }
+            }
+            
+            // Обновляем выделение и возможные ходы
+            updateCellStyles();
+            updateCurrentPlayerDisplay();
+        }
+        
+        // Обновление стилей клеток
+        function updateCellStyles() {
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => {
+                cell.classList.remove('selected', 'possible-move', 'possible-capture');
+            });
+            
+            if (selectedCell) {
+                const { row, col } = selectedCell;
+                const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+                if (cell) {
+                    cell.classList.add('selected');
+                }
+                
+                possibleMoves.forEach(move => {
+                    const cell = document.querySelector(`[data-row="${move.toRow}"][data-col="${move.toCol}"]`);
+                    if (cell) {
+                        if (move.isCapture) {
+                            cell.classList.add('possible-capture');
+                        } else {
+                            cell.classList.add('possible-move');
+                        }
+                    }
+                });
+            }
+        }
+        
+        // Обновление отображения текущего игрока
+        function updateCurrentPlayerDisplay() {
+            const currentPlayerEl = document.getElementById('currentPlayer');
+            if (currentPlayerEl) {
+                currentPlayerEl.textContent = `Ход: ${currentPlayer === 'white' ? 'Белые' : 'Черные'}`;
+                currentPlayerEl.className = `current-player ${currentPlayer}`;
+            }
+        }
+        
+        // Обработка клика по клетке
+        function handleCellClick(row, col) {
+            if (gameOver) return;
+            
+            const piece = board[row][col];
+            
+            // Если выбрана фишка текущего игрока
+            if (piece && piece.type === currentPlayer) {
+                selectedCell = { row, col };
+                possibleMoves = getPossibleMoves(row, col);
+                renderBoard();
+            }
+            // Если выбрана клетка для хода
+            else if (selectedCell) {
+                const move = possibleMoves.find(m => m.toRow === row && m.toCol === col);
+                if (move) {
+                    makeMove(selectedCell.row, selectedCell.col, row, col);
+                    selectedCell = null;
+                    possibleMoves = [];
+                    renderBoard();
+                    
+                    // Проверка окончания игры
+                    if (!gameOver) {
+                        checkGameOver();
+                        if (!gameOver && gameMode === 'bot' && currentPlayer === 'black') {
+                            setTimeout(() => makeBotMove(), 500);
+                        }
+                    }
+                } else {
+                    // Отменяем выбор
+                    selectedCell = null;
+                    possibleMoves = [];
+                    renderBoard();
+                }
+            }
+        }
+        
+        // Получение возможных ходов для фишки
+        function getPossibleMoves(row, col) {
+            const piece = board[row][col];
+            if (!piece) return [];
+            
+            const moves = [];
+            const captures = [];
+            
+            // Направления для обычной фишки
+            const directions = piece.king 
+                ? [[-1, -1], [-1, 1], [1, -1], [1, 1]] // Дамка может во все стороны
+                : piece.type === 'white' 
+                    ? [[-1, -1], [-1, 1]] // Белые идут вверх
+                    : [[1, -1], [1, 1]]; // Черные идут вниз
+            
+            // Проверяем обычные ходы и взятия
+            for (const [dr, dc] of directions) {
+                if (piece.king) {
+                    // Для дамки проверяем все клетки по диагонали
+                    for (let i = 1; i < BOARD_SIZE; i++) {
+                        const newRow = row + dr * i;
+                        const newCol = col + dc * i;
+                        
+                        if (!isValidCell(newRow, newCol)) break;
+                        
+                        const targetPiece = board[newRow][newCol];
+                        if (!targetPiece) {
+                            moves.push({ toRow: newRow, toCol: newCol, isCapture: false });
+                        } else if (targetPiece.type !== piece.type) {
+                            // Возможное взятие
+                            const jumpRow = newRow + dr;
+                            const jumpCol = newCol + dc;
+                            if (isValidCell(jumpRow, jumpCol) && !board[jumpRow][jumpCol]) {
+                                captures.push({ 
+                                    toRow: jumpRow, 
+                                    toCol: jumpCol, 
+                                    isCapture: true,
+                                    captureRow: newRow,
+                                    captureCol: newCol
+                                });
+                            }
+                            break;
+                        } else {
+                            break;
+                        }
+                    }
+                } else {
+                    // Для обычной фишки
+                    const newRow = row + dr;
+                    const newCol = col + dc;
+                    
+                    if (isValidCell(newRow, newCol)) {
+                        const targetPiece = board[newRow][newCol];
+                        if (!targetPiece) {
+                            moves.push({ toRow: newRow, toCol: newCol, isCapture: false });
+                        } else if (targetPiece.type !== piece.type) {
+                            // Возможное взятие
+                            const jumpRow = newRow + dr;
+                            const jumpCol = newCol + dc;
+                            if (isValidCell(jumpRow, jumpCol) && !board[jumpRow][jumpCol]) {
+                                captures.push({ 
+                                    toRow: jumpRow, 
+                                    toCol: jumpCol, 
+                                    isCapture: true,
+                                    captureRow: newRow,
+                                    captureCol: newCol
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Если есть взятия, возвращаем только их (взятия обязательны)
+            return captures.length > 0 ? captures : moves;
+        }
+        
+        // Проверка валидности клетки
+        function isValidCell(row, col) {
+            return row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE;
+        }
+        
+        // Выполнение хода
+        function makeMove(fromRow, fromCol, toRow, toCol) {
+            const piece = board[fromRow][fromCol];
+            if (!piece) return false;
+            
+            const move = possibleMoves.find(m => m.toRow === toRow && m.toCol === toCol);
+            if (!move) return false;
+            
+            // Перемещаем фишку
+            board[toRow][toCol] = piece;
+            board[fromRow][fromCol] = null;
+            
+            // Если это взятие, удаляем взятую фишку
+            if (move.isCapture) {
+                board[move.captureRow][move.captureCol] = null;
+                
+                // Проверяем возможность продолжения взятия
+                const continueCaptures = getPossibleMoves(toRow, toCol).filter(m => m.isCapture);
+                if (continueCaptures.length > 0) {
+                    // Можно продолжить взятие
+                    selectedCell = { row: toRow, col: toCol };
+                    possibleMoves = continueCaptures;
+                    renderBoard();
+                    return true; // Не меняем игрока
+                }
+            }
+            
+            // Превращение в дамку
+            if (!piece.king) {
+                if ((piece.type === 'white' && toRow === 0) || 
+                    (piece.type === 'black' && toRow === BOARD_SIZE - 1)) {
+                    piece.king = true;
+                }
+            }
+            
+            // Меняем игрока
+            currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
+            selectedCell = null;
+            possibleMoves = [];
+            
+            return true;
+        }
+        
+        // Ход бота
+        function makeBotMove() {
+            if (gameOver || currentPlayer !== 'black') return;
+            
+            // Находим все возможные ходы черных
+            const allMoves = [];
+            for (let row = 0; row < BOARD_SIZE; row++) {
+                for (let col = 0; col < BOARD_SIZE; col++) {
+                    const piece = board[row][col];
+                    if (piece && piece.type === 'black') {
+                        const moves = getPossibleMoves(row, col);
+                        moves.forEach(move => {
+                            allMoves.push({
+                                fromRow: row,
+                                fromCol: col,
+                                toRow: move.toRow,
+                                toCol: move.toCol,
+                                isCapture: move.isCapture,
+                                captureRow: move.captureRow,
+                                captureCol: move.captureCol
+                            });
+                        });
+                    }
+                }
+            }
+            
+            if (allMoves.length === 0) {
+                endGame('white');
+                return;
+            }
+            
+            // Приоритет взятиям
+            const captures = allMoves.filter(m => m.isCapture);
+            const movesToConsider = captures.length > 0 ? captures : allMoves;
+            
+            // Выбор хода в зависимости от сложности
+            let selectedMove;
+            if (botDifficulty <= 3) {
+                // Легкий: случайный ход
+                selectedMove = movesToConsider[Math.floor(Math.random() * movesToConsider.length)];
+            } else if (botDifficulty <= 6) {
+                // Средний: предпочитает взятия, иногда случайный
+                if (captures.length > 0 && Math.random() < 0.8) {
+                    selectedMove = captures[Math.floor(Math.random() * captures.length)];
+                } else {
+                    selectedMove = movesToConsider[Math.floor(Math.random() * movesToConsider.length)];
+                }
+            } else {
+                // Сложный: всегда берет, если возможно, выбирает лучший ход
+                if (captures.length > 0) {
+                    // Выбираем взятие с максимальным приоритетом
+                    selectedMove = captures[0];
+                } else {
+                    // Выбираем ход, который приближает к превращению в дамку
+                    selectedMove = movesToConsider.reduce((best, move) => {
+                        const piece = board[move.fromRow][move.fromCol];
+                        if (!piece.king) {
+                            const progress = piece.type === 'black' 
+                                ? (BOARD_SIZE - 1 - move.toRow) 
+                                : move.toRow;
+                            const bestProgress = piece.type === 'black'
+                                ? (BOARD_SIZE - 1 - best.toRow)
+                                : best.toRow;
+                            return progress > bestProgress ? move : best;
+                        }
+                        return best;
+                    }, movesToConsider[0]);
+                }
+            }
+            
+            // Выполняем ход
+            selectedCell = { row: selectedMove.fromRow, col: selectedMove.fromCol };
+            possibleMoves = getPossibleMoves(selectedMove.fromRow, selectedMove.fromCol);
+            makeMove(selectedMove.fromRow, selectedMove.fromCol, selectedMove.toRow, selectedMove.toCol);
+            renderBoard();
+            
+            checkGameOver();
+        }
+        
+        // Проверка окончания игры
+        function checkGameOver() {
+            // Проверяем, есть ли у текущего игрока возможные ходы
+            let hasMoves = false;
+            for (let row = 0; row < BOARD_SIZE; row++) {
+                for (let col = 0; col < BOARD_SIZE; col++) {
+                    const piece = board[row][col];
+                    if (piece && piece.type === currentPlayer) {
+                        const moves = getPossibleMoves(row, col);
+                        if (moves.length > 0) {
+                            hasMoves = true;
+                            break;
+                        }
+                    }
+                }
+                if (hasMoves) break;
+            }
+            
+            if (!hasMoves) {
+                const winner = currentPlayer === 'white' ? 'black' : 'white';
+                endGame(winner);
+            }
+            
+            // Проверка на отсутствие фишек
+            let whiteCount = 0;
+            let blackCount = 0;
+            for (let row = 0; row < BOARD_SIZE; row++) {
+                for (let col = 0; col < BOARD_SIZE; col++) {
+                    const piece = board[row][col];
+                    if (piece) {
+                        if (piece.type === 'white') whiteCount++;
+                        else blackCount++;
+                    }
+                }
+            }
+            
+            if (whiteCount === 0) {
+                endGame('black');
+            } else if (blackCount === 0) {
+                endGame('white');
+            }
+        }
+        
+        // Окончание игры
+        function endGame(winner) {
+            gameOver = true;
+            const overlay = document.getElementById('gameOverOverlay');
+            const title = document.getElementById('gameOverTitle');
+            const message = document.getElementById('gameOverMessage');
+            
+            if (overlay && title && message) {
+                title.textContent = 'Игра окончена!';
+                message.textContent = `Победили ${winner === 'white' ? 'Белые' : 'Черные'}!`;
+                overlay.style.display = 'flex';
+            }
+        }
+        
+        // Сброс игры
+        function resetGame() {
+            gameOver = false;
+            currentPlayer = 'white';
+            selectedCell = null;
+            possibleMoves = [];
+            const overlay = document.getElementById('gameOverOverlay');
+            if (overlay) {
+                overlay.style.display = 'none';
+            }
+            initBoard();
+        }
+        
+        // Выбор режима игры
+        function selectMode(mode) {
+            const modeMenuOverlay = document.getElementById('modeMenuOverlay');
+            if (modeMenuOverlay) {
+                modeMenuOverlay.style.display = 'none';
+            }
+            gameMode = mode;
+            const gameContainer = document.getElementById('gameContainer');
+            if (gameContainer) {
+                gameContainer.classList.remove('hidden');
+            }
+            resetGame();
+            if (mode === 'pvp') {
+                currentPlayer = 'white';
+            }
+        }
+        
+        // Показать меню режимов
+        function showModeMenu() {
+            const modeMenuOverlay = document.getElementById('modeMenuOverlay');
+            const gameContainer = document.getElementById('gameContainer');
+            if (modeMenuOverlay) {
+                modeMenuOverlay.style.display = 'flex';
+            }
+            if (gameContainer) {
+                gameContainer.classList.add('hidden');
+            }
+        }
+        
+        // Показать меню сложности бота
+        function showBotDifficultyMenu() {
+            const overlay = document.getElementById('botDifficultyOverlay');
+            if (overlay) {
+                // Загружаем сохраненную сложность
+                try {
+                    const saved = localStorage.getItem('checkers_bot_difficulty');
+                    if (saved) {
+                        botDifficulty = parseInt(saved) || 5;
+                        document.getElementById('difficultySlider').value = botDifficulty;
+                    }
+                } catch (e) {
+                    console.warn('Не удалось загрузить сложность из localStorage');
+                }
+                updateDifficultyDisplay();
+                overlay.style.display = 'flex';
+            }
+        }
+        
+        // Скрыть меню сложности бота
+        function hideBotDifficultyMenu() {
+            const overlay = document.getElementById('botDifficultyOverlay');
+            if (overlay) {
+                overlay.style.display = 'none';
+            }
+        }
+        
+        // Обновить отображение сложности
+        function updateDifficultyDisplay() {
+            const slider = document.getElementById('difficultySlider');
+            const valueEl = document.getElementById('difficultyValue');
+            const descEl = document.getElementById('difficultyDescription');
+            
+            if (slider && valueEl && descEl) {
+                botDifficulty = parseInt(slider.value);
+                valueEl.textContent = botDifficulty;
+                
+                let description = '';
+                if (botDifficulty <= 2) {
+                    description = 'Очень легко';
+                } else if (botDifficulty <= 4) {
+                    description = 'Легко';
+                } else if (botDifficulty <= 6) {
+                    description = 'Средняя сложность';
+                } else if (botDifficulty <= 8) {
+                    description = 'Сложно';
+                } else {
+                    description = 'Очень сложно';
+                }
+                
+                descEl.textContent = description;
+                
+                // Сохраняем в localStorage
+                try {
+                    localStorage.setItem('checkers_bot_difficulty', botDifficulty.toString());
+                } catch (e) {
+                    console.warn('Не удалось сохранить сложность в localStorage');
+                }
+            }
+        }
+        
+        // Начать игру с ботом
+        function startGameWithBot() {
+            hideBotDifficultyMenu();
+            selectMode('bot');
+            currentPlayer = 'white';
+        }
+        
+        // Инициализация при загрузке
+        function init() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const modeParam = urlParams.get('mode');
+            
+            if (modeParam) {
+                gameMode = modeParam;
+                const modeMenuOverlay = document.getElementById('modeMenuOverlay');
+                if (modeMenuOverlay) {
+                    modeMenuOverlay.style.display = 'none';
+                }
+                const gameContainer = document.getElementById('gameContainer');
+                if (gameContainer) {
+                    gameContainer.classList.remove('hidden');
+                }
+                if (modeParam === 'bot') {
+                    showBotDifficultyMenu();
+                }
+            } else {
+                // Показываем меню выбора режима
+                const modeMenuOverlay = document.getElementById('modeMenuOverlay');
+                if (modeMenuOverlay) {
+                    modeMenuOverlay.style.display = 'flex';
+                }
+                const gameContainer = document.getElementById('gameContainer');
+                if (gameContainer) {
+                    gameContainer.classList.add('hidden');
+                }
+            }
+            
+            initBoard();
+        }
+        
+        // Запуск при загрузке страницы
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
