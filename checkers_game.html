@@ -346,8 +346,30 @@
     </style>
 </head>
 <body>
+    <!-- Меню выбора типа шашек -->
+    <div class="mode-menu-overlay" id="checkersTypeMenuOverlay" style="display: flex;">
+        <div class="mode-menu">
+            <h2>⚫ Шашки</h2>
+            <p>Выберите тип шашек:</p>
+            <div class="mode-buttons">
+                <button class="mode-btn" onclick="selectCheckersType('russian')">
+                    <span class="mode-icon">🇷🇺</span>
+                    <span class="mode-text">Русские шашки</span>
+                </button>
+                <button class="mode-btn" onclick="selectCheckersType('english')">
+                    <span class="mode-icon">🇬🇧</span>
+                    <span class="mode-text">Английские шашки (чекерс)</span>
+                </button>
+                <button class="mode-btn" onclick="selectCheckersType('russian_giveaway')">
+                    <span class="mode-icon">🔄</span>
+                    <span class="mode-text">Русские поддавки</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    
     <!-- Меню выбора режима -->
-    <div class="mode-menu-overlay" id="modeMenuOverlay" style="display: flex;">
+    <div class="mode-menu-overlay" id="modeMenuOverlay" style="display: none;">
         <div class="mode-menu">
             <h2>⚫ Шашки</h2>
             <p>Выберите режим игры:</p>
@@ -381,12 +403,13 @@
     <!-- Игровой контейнер -->
     <div class="game-container" id="gameContainer">
         <div class="game-info">
+            <div id="gameTypeInfo" style="font-size: 12px; opacity: 0.8; margin-right: 10px;">Русские шашки</div>
             <div class="current-player white" id="currentPlayer">Ход: Белые</div>
         </div>
         <div class="checkers-board" id="checkersBoard"></div>
         <div class="controls">
             <button onclick="resetGame()">Новая игра</button>
-            <button onclick="showModeMenu()">Меню</button>
+            <button onclick="showCheckersTypeMenu()">Меню</button>
         </div>
     </div>
     
@@ -397,7 +420,7 @@
             <p id="gameOverMessage"></p>
             <div style="display: flex; gap: 10px; margin-top: 20px;">
                 <button onclick="resetGame()" style="flex: 1;">Новая игра</button>
-                <button onclick="showModeMenu()" style="flex: 1;">Меню</button>
+                <button onclick="showCheckersTypeMenu()" style="flex: 1;">Меню</button>
             </div>
         </div>
     </div>
@@ -418,6 +441,7 @@
         let gameMode = null; // 'bot', 'pvp', 'online'
         let botDifficulty = 5; // 1-10
         let gameOver = false;
+        let checkersType = 'russian'; // 'russian', 'english', 'russian_giveaway'
         const BOARD_SIZE = 8;
         
         // Инициализация доски
@@ -523,6 +547,18 @@
                 currentPlayerEl.textContent = `Ход: ${currentPlayer === 'white' ? 'Белые' : 'Черные'}`;
                 currentPlayerEl.className = `current-player ${currentPlayer}`;
             }
+            
+            // Обновляем информацию о типе шашек
+            const gameTypeInfo = document.getElementById('gameTypeInfo');
+            if (gameTypeInfo) {
+                if (checkersType === 'russian') {
+                    gameTypeInfo.textContent = 'Русские шашки';
+                } else if (checkersType === 'english') {
+                    gameTypeInfo.textContent = 'Английские шашки';
+                } else if (checkersType === 'russian_giveaway') {
+                    gameTypeInfo.textContent = 'Русские поддавки';
+                }
+            }
         }
         
         // Обработка клика по клетке
@@ -571,41 +607,77 @@
             const captures = [];
             
             // Направления для обычной фишки
-            const directions = piece.king 
-                ? [[-1, -1], [-1, 1], [1, -1], [1, 1]] // Дамка может во все стороны
-                : piece.type === 'white' 
+            let directions;
+            if (piece.king) {
+                if (checkersType === 'english') {
+                    // В английских шашках дамка ходит на одно поле
+                    directions = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+                } else {
+                    // В русских шашках дамка может во все стороны на любое расстояние
+                    directions = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+                }
+            } else {
+                // Обычная фишка
+                directions = piece.type === 'white' 
                     ? [[-1, -1], [-1, 1]] // Белые идут вверх
                     : [[1, -1], [1, 1]]; // Черные идут вниз
+            }
             
             // Проверяем обычные ходы и взятия
             for (const [dr, dc] of directions) {
                 if (piece.king) {
-                    // Для дамки проверяем все клетки по диагонали
-                    for (let i = 1; i < BOARD_SIZE; i++) {
-                        const newRow = row + dr * i;
-                        const newCol = col + dc * i;
+                    if (checkersType === 'english') {
+                        // В английских шашках дамка ходит на одно поле
+                        const newRow = row + dr;
+                        const newCol = col + dc;
                         
-                        if (!isValidCell(newRow, newCol)) break;
-                        
-                        const targetPiece = board[newRow][newCol];
-                        if (!targetPiece) {
-                            moves.push({ toRow: newRow, toCol: newCol, isCapture: false });
-                        } else if (targetPiece.type !== piece.type) {
-                            // Возможное взятие
-                            const jumpRow = newRow + dr;
-                            const jumpCol = newCol + dc;
-                            if (isValidCell(jumpRow, jumpCol) && !board[jumpRow][jumpCol]) {
-                                captures.push({ 
-                                    toRow: jumpRow, 
-                                    toCol: jumpCol, 
-                                    isCapture: true,
-                                    captureRow: newRow,
-                                    captureCol: newCol
-                                });
+                        if (isValidCell(newRow, newCol)) {
+                            const targetPiece = board[newRow][newCol];
+                            if (!targetPiece) {
+                                moves.push({ toRow: newRow, toCol: newCol, isCapture: false });
+                            } else if (targetPiece.type !== piece.type) {
+                                // Возможное взятие (только через одно поле)
+                                const jumpRow = newRow + dr;
+                                const jumpCol = newCol + dc;
+                                if (isValidCell(jumpRow, jumpCol) && !board[jumpRow][jumpCol]) {
+                                    captures.push({ 
+                                        toRow: jumpRow, 
+                                        toCol: jumpCol, 
+                                        isCapture: true,
+                                        captureRow: newRow,
+                                        captureCol: newCol
+                                    });
+                                }
                             }
-                            break;
-                        } else {
-                            break;
+                        }
+                    } else {
+                        // В русских шашках дамка может на любое расстояние
+                        for (let i = 1; i < BOARD_SIZE; i++) {
+                            const newRow = row + dr * i;
+                            const newCol = col + dc * i;
+                            
+                            if (!isValidCell(newRow, newCol)) break;
+                            
+                            const targetPiece = board[newRow][newCol];
+                            if (!targetPiece) {
+                                moves.push({ toRow: newRow, toCol: newCol, isCapture: false });
+                            } else if (targetPiece.type !== piece.type) {
+                                // Возможное взятие
+                                const jumpRow = newRow + dr;
+                                const jumpCol = newCol + dc;
+                                if (isValidCell(jumpRow, jumpCol) && !board[jumpRow][jumpCol]) {
+                                    captures.push({ 
+                                        toRow: jumpRow, 
+                                        toCol: jumpCol, 
+                                        isCapture: true,
+                                        captureRow: newRow,
+                                        captureCol: newCol
+                                    });
+                                }
+                                break;
+                            } else {
+                                break;
+                            }
                         }
                     }
                 } else {
@@ -619,6 +691,12 @@
                             moves.push({ toRow: newRow, toCol: newCol, isCapture: false });
                         } else if (targetPiece.type !== piece.type) {
                             // Возможное взятие
+                            if (checkersType === 'english') {
+                                // В английских шашках простые шашки бьют только вперед
+                                const isForward = piece.type === 'white' ? dr < 0 : dr > 0;
+                                if (!isForward) continue; // Пропускаем взятие назад
+                            }
+                            
                             const jumpRow = newRow + dr;
                             const jumpCol = newCol + dc;
                             if (isValidCell(jumpRow, jumpCol) && !board[jumpRow][jumpCol]) {
@@ -787,6 +865,7 @@
             if (!hasMoves) {
                 const winner = currentPlayer === 'white' ? 'black' : 'white';
                 endGame(winner);
+                return;
             }
             
             // Проверка на отсутствие фишек
@@ -802,10 +881,20 @@
                 }
             }
             
-            if (whiteCount === 0) {
-                endGame('black');
-            } else if (blackCount === 0) {
-                endGame('white');
+            if (checkersType === 'russian_giveaway') {
+                // В поддавках побеждает тот, кто первым отдал все свои шашки
+                if (whiteCount === 0) {
+                    endGame('white'); // Белые выиграли (отдали все шашки)
+                } else if (blackCount === 0) {
+                    endGame('black'); // Черные выиграли (отдали все шашки)
+                }
+            } else {
+                // В обычных шашках побеждает тот, у кого остались шашки
+                if (whiteCount === 0) {
+                    endGame('black');
+                } else if (blackCount === 0) {
+                    endGame('white');
+                }
             }
         }
         
@@ -818,7 +907,11 @@
             
             if (overlay && title && message) {
                 title.textContent = 'Игра окончена!';
-                message.textContent = `Победили ${winner === 'white' ? 'Белые' : 'Черные'}!`;
+                if (checkersType === 'russian_giveaway') {
+                    message.textContent = `Победили ${winner === 'white' ? 'Белые' : 'Черные'}! (первыми отдали все шашки)`;
+                } else {
+                    message.textContent = `Победили ${winner === 'white' ? 'Белые' : 'Черные'}!`;
+                }
                 overlay.style.display = 'flex';
             }
         }
@@ -826,7 +919,8 @@
         // Сброс игры
         function resetGame() {
             gameOver = false;
-            currentPlayer = 'white';
+            // В английских шашках первый ход делают черные
+            currentPlayer = checkersType === 'english' ? 'black' : 'white';
             selectedCell = null;
             possibleMoves = [];
             const overlay = document.getElementById('gameOverOverlay');
@@ -834,6 +928,20 @@
                 overlay.style.display = 'none';
             }
             initBoard();
+        }
+        
+        // Выбор типа шашек
+        function selectCheckersType(type) {
+            checkersType = type;
+            const typeMenuOverlay = document.getElementById('checkersTypeMenuOverlay');
+            if (typeMenuOverlay) {
+                typeMenuOverlay.style.display = 'none';
+            }
+            // Показываем меню выбора режима
+            const modeMenuOverlay = document.getElementById('modeMenuOverlay');
+            if (modeMenuOverlay) {
+                modeMenuOverlay.style.display = 'flex';
+            }
         }
         
         // Выбор режима игры
@@ -849,7 +957,7 @@
             }
             resetGame();
             if (mode === 'pvp') {
-                currentPlayer = 'white';
+                currentPlayer = checkersType === 'english' ? 'black' : 'white';
             }
         }
         
@@ -859,6 +967,22 @@
             const gameContainer = document.getElementById('gameContainer');
             if (modeMenuOverlay) {
                 modeMenuOverlay.style.display = 'flex';
+            }
+            if (gameContainer) {
+                gameContainer.classList.add('hidden');
+            }
+        }
+        
+        // Показать меню выбора типа шашек
+        function showCheckersTypeMenu() {
+            const typeMenuOverlay = document.getElementById('checkersTypeMenuOverlay');
+            const modeMenuOverlay = document.getElementById('modeMenuOverlay');
+            const gameContainer = document.getElementById('gameContainer');
+            if (typeMenuOverlay) {
+                typeMenuOverlay.style.display = 'flex';
+            }
+            if (modeMenuOverlay) {
+                modeMenuOverlay.style.display = 'none';
             }
             if (gameContainer) {
                 gameContainer.classList.add('hidden');
@@ -930,7 +1054,7 @@
         function startGameWithBot() {
             hideBotDifficultyMenu();
             selectMode('bot');
-            currentPlayer = 'white';
+            currentPlayer = checkersType === 'english' ? 'black' : 'white';
         }
         
         // Инициализация при загрузке
@@ -938,29 +1062,19 @@
             const urlParams = new URLSearchParams(window.location.search);
             const modeParam = urlParams.get('mode');
             
-            if (modeParam) {
-                gameMode = modeParam;
-                const modeMenuOverlay = document.getElementById('modeMenuOverlay');
-                if (modeMenuOverlay) {
-                    modeMenuOverlay.style.display = 'none';
-                }
-                const gameContainer = document.getElementById('gameContainer');
-                if (gameContainer) {
-                    gameContainer.classList.remove('hidden');
-                }
-                if (modeParam === 'bot') {
-                    showBotDifficultyMenu();
-                }
-            } else {
-                // Показываем меню выбора режима
-                const modeMenuOverlay = document.getElementById('modeMenuOverlay');
-                if (modeMenuOverlay) {
-                    modeMenuOverlay.style.display = 'flex';
-                }
-                const gameContainer = document.getElementById('gameContainer');
-                if (gameContainer) {
-                    gameContainer.classList.add('hidden');
-                }
+            // Всегда показываем меню выбора типа шашек в начале
+            const typeMenuOverlay = document.getElementById('checkersTypeMenuOverlay');
+            const modeMenuOverlay = document.getElementById('modeMenuOverlay');
+            const gameContainer = document.getElementById('gameContainer');
+            
+            if (typeMenuOverlay) {
+                typeMenuOverlay.style.display = 'flex';
+            }
+            if (modeMenuOverlay) {
+                modeMenuOverlay.style.display = 'none';
+            }
+            if (gameContainer) {
+                gameContainer.classList.add('hidden');
             }
             
             initBoard();
@@ -971,3 +1085,4 @@
     </script>
 </body>
 </html>
+
